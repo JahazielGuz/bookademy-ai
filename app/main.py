@@ -21,12 +21,12 @@ from app.generation.topics import generate_chapter_topics
 from app.outline import read_outline
 from app.schemas import (
     Chapter,
-    ChapterTopics,
     ChapterTopicsRequest,
+    ChapterTopicsResponse,
     DocumentResponse,
     Heading,
-    TopicContent,
     TopicContentRequest,
+    TopicContentResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -113,19 +113,19 @@ async def read_document(file: UploadFile) -> DocumentResponse:
 
 @app.post(
     "/v1/chapter-topics",
-    response_model=ChapterTopics,
+    response_model=ChapterTopicsResponse,
     dependencies=[Depends(require_service_token)],
 )
-async def chapter_topics(request: ChapterTopicsRequest) -> ChapterTopics:
+async def chapter_topics(request: ChapterTopicsRequest) -> ChapterTopicsResponse:
     return await _guarded(generate_chapter_topics(request))
 
 
 @app.post(
     "/v1/topic-content",
-    response_model=TopicContent,
+    response_model=TopicContentResponse,
     dependencies=[Depends(require_service_token)],
 )
-async def topic_content(request: TopicContentRequest) -> TopicContent:
+async def topic_content(request: TopicContentRequest) -> TopicContentResponse:
     return await _guarded(generate_topic_content(request))
 
 

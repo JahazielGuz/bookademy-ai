@@ -8,12 +8,12 @@ chapter text, and writes that text to the cache the content calls then read from
 from app.config import get_settings
 from app.generation.client import parse_structured
 from app.generation.prompts import TOPICS_SYSTEM, topics_user_text
-from app.schemas import ChapterTopics, ChapterTopicsRequest
+from app.schemas import ChapterTopics, ChapterTopicsRequest, ChapterTopicsResponse
 
 
-async def generate_chapter_topics(request: ChapterTopicsRequest) -> ChapterTopics:
+async def generate_chapter_topics(request: ChapterTopicsRequest) -> ChapterTopicsResponse:
     settings = get_settings()
-    return await parse_structured(
+    parsed, usage = await parse_structured(
         model=settings.outline_model,
         system=TOPICS_SYSTEM,
         source_text=request.text,
@@ -26,3 +26,4 @@ async def generate_chapter_topics(request: ChapterTopicsRequest) -> ChapterTopic
         # First call for this chapter: it pays for the cache the topic calls read.
         max_output_tokens=4000,
     )
+    return ChapterTopicsResponse(topics=parsed.topics, usage=usage)

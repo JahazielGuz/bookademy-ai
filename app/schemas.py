@@ -69,8 +69,28 @@ class ChapterTopicsRequest(BaseModel):
     )
 
 
+class Usage(BaseModel):
+    """What one call actually consumed.
+
+    Returned alongside the content rather than folded into it: the content models are
+    what the model is constrained to produce, and usage is not something it reports.
+    """
+
+    model: str
+    input_tokens: int
+    cached_input_tokens: int
+    output_tokens: int
+
+
 class ChapterTopics(BaseModel):
+    """The model's output. Constrained, so it carries nothing but topics."""
+
     topics: list[Topic]
+
+
+class ChapterTopicsResponse(BaseModel):
+    topics: list[Topic]
+    usage: Usage
 
 
 # --- Topic content: one call per topic ---------------------------------------
@@ -152,6 +172,13 @@ class TopicContent(BaseModel):
     lesson: Lesson
     quiz: Quiz
     exercises: list[Exercise]
+
+
+class TopicContentResponse(BaseModel):
+    lesson: Lesson
+    quiz: Quiz
+    exercises: list[Exercise]
+    usage: Usage
 
 
 class TopicContentRequest(BaseModel):
