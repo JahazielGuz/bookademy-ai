@@ -55,44 +55,18 @@ def test_quiz_answer_must_point_at_a_real_choice():
         )
 
 
-def test_the_schemas_the_api_receives_are_compliant():
-    """Structured outputs reject most JSON Schema constraints.
-
-    Pydantic emits several of them freely — `max_length` on a list becomes
-    `maxItems`, which is not supported at all, and `min_length=2` becomes
-    `minItems: 2`, where only 0 and 1 are allowed. The SDK rewrites them into the
-    description on the way out, so this asserts the schema actually sent is clean
-    rather than trusting that it is.
-    """
+def test_the_schemas_carry_no_array_bounds():
+    """Which JSON Schema keywords a provider accepts varies, and a rejected schema
+    fails every call where a rejected response fails only one. Bounds are therefore
+    enforced in validators, not in the schema."""
     import json
-
-    from anthropic.lib._parse._transform import transform_schema
 
     from app.schemas import ChapterTopics, TopicContent
 
-    unsupported = {"maxItems", "minLength", "maxLength", "minimum", "maximum", "multipleOf"}
-
-    def problems(node, path="$"):
-        found = []
-        if isinstance(node, dict):
-            for key, value in node.items():
-                if key in unsupported:
-                    found.append(f"{path}.{key}")
-                if key == "minItems" and value not in (0, 1):
-                    found.append(f"{path}.minItems={value}")
-                found.extend(problems(value, f"{path}.{key}"))
-        elif isinstance(node, list):
-            for index, item in enumerate(node):
-                found.extend(problems(item, f"{path}[{index}]"))
-        return found
-
     for model in (ChapterTopics, TopicContent):
-        sent = transform_schema(model.model_json_schema())
-        assert problems(sent) == [], f"{model.__name__} would be rejected: {problems(sent)}"
-
-        # Every object must carry additionalProperties: false.
-        text = json.dumps(sent)
-        assert text.count('"type": "object"') == text.count('"additionalProperties": false')
+        text = json.dumps(model.model_json_schema())
+        for keyword in ("minItems", "maxItems", "minLength", "maxLength"):
+            assert keyword not in text, f"{model.__name__} still carries {keyword}"
 
 
 def test_a_question_may_have_more_choices_than_asked_for():

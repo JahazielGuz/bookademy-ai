@@ -6,14 +6,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    anthropic_api_key: str | None = None
-    # Only needed for an organization-level key. A workspace-scoped key carries
-    # its workspace already, and the API rejects an unscoped key without this.
-    anthropic_workspace_id: str | None = None
+    openai_api_key: str | None = None
+
     service_token: str = "dev-only-change-me"
 
-    outline_model: str = "claude-opus-5-5"
-    content_model: str = "claude-sonnet-5-5"
+    # Topic merging is structural work over a chapter's own headings; content
+    # authoring is the part that carries the product. Both are mid-tier on purpose —
+    # a nano-class model is built for classification and routing, not for writing
+    # cumulative exercises where every step has to compile and build on the last.
+    outline_model: str = "gpt-5-mini"
+    content_model: str = "gpt-5-mini"
 
 
 @lru_cache

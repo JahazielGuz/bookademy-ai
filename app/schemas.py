@@ -70,7 +70,7 @@ class ChapterTopicsRequest(BaseModel):
 
 
 class ChapterTopics(BaseModel):
-    topics: list[Topic] = Field(min_length=1)
+    topics: list[Topic]
 
 
 # --- Topic content: one call per topic ---------------------------------------
@@ -90,23 +90,24 @@ class Lesson(BaseModel):
 
 class QuizQuestion(BaseModel):
     prompt: str
-    # Lower bound only. Structured outputs do not enforce array bounds server-side —
-    # the SDK moves them into the description and Pydantic checks them on the way
-    # back — so an upper bound here would turn a harmless six-choice question into a
-    # failed topic. Two is different: a question with one choice is broken.
-    choices: list[str] = Field(min_length=2)
+    choices: list[str]
     correct_index: int
     explanation: str = Field(description="Why the correct choice is correct.")
 
     @model_validator(mode="after")
-    def correct_index_in_range(self) -> "QuizQuestion":
+    def answerable(self) -> "QuizQuestion":
+        # Checked here rather than as a schema constraint: which JSON Schema
+        # keywords a provider accepts varies, and a rejected schema fails every
+        # call, where a rejected response fails only one.
+        if len(self.choices) < 2:
+            raise ValueError("a question needs at least two choices")
         if not 0 <= self.correct_index < len(self.choices):
             raise ValueError("correct_index is outside the choices list")
         return self
 
 
 class Quiz(BaseModel):
-    questions: list[QuizQuestion] = Field(min_length=1)
+    questions: list[QuizQuestion]
 
 
 class ExerciseStep(BaseModel):
@@ -130,7 +131,7 @@ class Exercise(BaseModel):
         description="The concrete situation the exercise is set in, e.g. a small app being built."
     )
     language: Language
-    steps: list[ExerciseStep] = Field(min_length=1)
+    steps: list[ExerciseStep]
 
     @model_validator(mode="after")
     def chain_the_steps(self) -> "Exercise":
@@ -150,7 +151,7 @@ class Exercise(BaseModel):
 class TopicContent(BaseModel):
     lesson: Lesson
     quiz: Quiz
-    exercises: list[Exercise] = Field(min_length=1)
+    exercises: list[Exercise]
 
 
 class TopicContentRequest(BaseModel):

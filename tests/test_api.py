@@ -37,38 +37,19 @@ def test_a_wrong_service_token_is_rejected():
 
 
 def test_missing_credentials_answer_with_a_readable_503(monkeypatch, token):
-    """The SDK reports missing credentials as a bare TypeError raised while building
-    the request headers, not at construction. An operator should get a sentence they
-    can act on, not a stack trace."""
+    """A misconfigured service should answer with a sentence an operator can act on,
+    not a 500 and a stack trace."""
 
-    class Messages:
-        async def parse(self, **kwargs):
-            raise TypeError(
-                "Could not resolve authentication method. Expected one of api_key, "
-                "auth_token, or credentials to be set."
-            )
+    from app.generation.client import NO_CREDENTIALS, NotConfigured
 
-    class FakeClient:
-        messages = Messages()
+    def unconfigured():
+        raise NotConfigured(NO_CREDENTIALS)
 
-    monkeypatch.setattr("app.generation.client.get_client", lambda: FakeClient())
+    monkeypatch.setattr("app.generation.client.get_client", unconfigured)
 
     response = client.post(
         "/v1/chapter-topics", json={"language": "python", "chapter_number": 1, "chapter_title": "Scope", "text": "body"}, headers={"X-Service-Token": token}
     )
 
     assert response.status_code == 503
-    assert "ANTHROPIC_API_KEY" in response.json()["detail"]
-
-
-def test_an_unrelated_type_error_is_not_disguised_as_a_config_problem():
-    """Matching on the message keeps a real bug visible instead of reporting it as
-    missing credentials."""
-    from app.generation.client import raise_for_credentials
-
-    bug = TypeError("unsupported operand type(s) for +: 'int' and 'str'")
-
-    with pytest.raises(TypeError) as raised:
-        raise_for_credentials(bug)
-
-    assert raised.value is bug
+    assert "OPENAI_API_KEY" in response.json()["detail"]

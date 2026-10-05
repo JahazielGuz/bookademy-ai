@@ -26,7 +26,5 @@ async def generate_topic_content(request: TopicContentRequest) -> TopicContent:
             key_points=request.key_points,
         ),
         output_format=TopicContent,
-        effort="medium",
-        cache_source=True,
-        max_tokens=16000,
+        max_output_tokens=16000,
     )
