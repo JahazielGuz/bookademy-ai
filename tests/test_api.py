@@ -23,14 +23,28 @@ def test_health_needs_no_token():
 
 
 def test_generation_is_closed_without_the_service_token():
-    response = client.post("/v1/chapter-topics", json={"language": "python", "chapter_number": 1, "chapter_title": "Scope", "text": "body"})
+    response = client.post("/v1/chapter-topics", json={
+            "language": "python",
+            "chapter_number": 1,
+            "chapter_title": "Scope",
+            "page_start": 1,
+            "page_end": 4,
+            "text": "body",
+        })
 
     assert response.status_code == 401
 
 
 def test_a_wrong_service_token_is_rejected():
     response = client.post(
-        "/v1/chapter-topics", json={"language": "python", "chapter_number": 1, "chapter_title": "Scope", "text": "body"}, headers={"X-Service-Token": "guessed"}
+        "/v1/chapter-topics", json={
+            "language": "python",
+            "chapter_number": 1,
+            "chapter_title": "Scope",
+            "page_start": 1,
+            "page_end": 4,
+            "text": "body",
+        }, headers={"X-Service-Token": "guessed"}
     )
 
     assert response.status_code == 401
@@ -48,7 +62,14 @@ def test_missing_credentials_answer_with_a_readable_503(monkeypatch, token):
     monkeypatch.setattr("app.generation.client.get_client", unconfigured)
 
     response = client.post(
-        "/v1/chapter-topics", json={"language": "python", "chapter_number": 1, "chapter_title": "Scope", "text": "body"}, headers={"X-Service-Token": token}
+        "/v1/chapter-topics", json={
+            "language": "python",
+            "chapter_number": 1,
+            "chapter_title": "Scope",
+            "page_start": 1,
+            "page_end": 4,
+            "text": "body",
+        }, headers={"X-Service-Token": token}
     )
 
     assert response.status_code == 503

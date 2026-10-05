@@ -19,15 +19,20 @@ class Settings(BaseSettings):
     # The content call writes the lessons and the exercises. It is the product, it is
     # 92% of the spend, and it is the one place where a cheaper model shows.
     outline_model: str = "gpt-4o-mini"
-    content_model: str = "gpt-4o-mini"
+    content_model: str = "gpt-5-mini"
 
     # Only applied to models that accept it. Reasoning models bill their thinking as
     # output tokens while never showing it in the content: measured on one small call,
     # effort "low" spent 905 output tokens where "medium" spent 7,961 — 8.8x for 144
     # more tokens of answer. Ignored entirely on a model like gpt-4o-mini, which does
     # not reason and spent 81 output tokens on the same call.
+    # Empty means "do not send it" — the model then reasons as much as it judges
+    # necessary. That is deliberate for content: it writes every lesson and exercise,
+    # and capping how hard it thinks is economising on the one call that is the
+    # product. The outline call only groups headings it is handed, so "low" there
+    # costs nothing worth having.
     outline_reasoning: str = "low"
-    content_reasoning: str = "low"
+    content_reasoning: str = ""
 
 
 @lru_cache
