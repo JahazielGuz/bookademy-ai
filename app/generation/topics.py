@@ -21,6 +21,8 @@ async def generate_chapter_topics(request: ChapterTopicsRequest) -> ChapterTopic
             chapter_number=request.chapter_number,
             chapter_title=request.chapter_title,
             headings=[heading.title for heading in request.headings],
+            page_start=request.page_start,
+            page_end=request.page_end,
         ),
         reasoning_effort=settings.outline_reasoning,
         output_format=ChapterTopics,

@@ -13,7 +13,7 @@ the repeated prefix is identical across every topic in a chapter.
 from functools import lru_cache
 from typing import TypeVar
 
-from openai import OpenAI, OpenAIError
+from openai import BadRequestError, OpenAI, OpenAIError
 from pydantic import BaseModel
 
 from app.config import get_settings
@@ -35,6 +35,17 @@ class Truncated(Exception):
 
 
 NO_CREDENTIALS = "No OpenAI credentials. Set OPENAI_API_KEY in bookademy-ai/.env."
+
+# Only reasoning models accept a reasoning effort; the rest reject the parameter
+# outright with a 400. Matched on name because the API offers no capability lookup,
+# and backed up by retrying without it if the guess is ever wrong — a rejected
+# request is refused before inference, so the retry costs nothing.
+REASONING_MODEL_PREFIXES = ("gpt-5", "gpt-6", "o1", "o3", "o4")
+UNSUPPORTED_REASONING = "'reasoning.effort' is not supported"
+
+
+def takes_reasoning_effort(model: str) -> bool:
+    return model.startswith(REASONING_MODEL_PREFIXES)
 
 
 @lru_cache
@@ -73,17 +84,28 @@ async def parse_structured(
     byte-identical across every topic in a chapter.
     """
     client = get_client()
-    response = client.responses.parse(
-        model=model,
-        instructions=system,
-        input=[
+    request = {
+        "model": model,
+        "instructions": system,
+        "input": [
             {"role": "user", "content": source_text},
             {"role": "user", "content": user_text},
         ],
-        text_format=output_format,
-        reasoning={"effort": reasoning_effort},
-        max_output_tokens=max_output_tokens,
-    )
+        "text_format": output_format,
+        "max_output_tokens": max_output_tokens,
+    }
+    if takes_reasoning_effort(model):
+        request["reasoning"] = {"effort": reasoning_effort}
+
+    try:
+        response = client.responses.parse(**request)
+    except BadRequestError as exc:
+        if UNSUPPORTED_REASONING not in str(exc):
+            raise
+        # The prefix list is behind a model it does not know about. Drop the
+        # parameter and carry on rather than failing the whole run over a name.
+        request.pop("reasoning", None)
+        response = client.responses.parse(**request)
 
     # A reasoning model can spend the entire output budget thinking and return
     # nothing. Saying so beats "no parsable output", which is the symptom.

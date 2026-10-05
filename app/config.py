@@ -18,14 +18,14 @@ class Settings(BaseSettings):
     #
     # The content call writes the lessons and the exercises. It is the product, it is
     # 92% of the spend, and it is the one place where a cheaper model shows.
-    outline_model: str = "gpt-5-nano"
-    content_model: str = "gpt-5-mini"
+    outline_model: str = "gpt-4o-mini"
+    content_model: str = "gpt-4o-mini"
 
-    # These models reason before answering, and reasoning tokens are billed as output
-    # tokens while never appearing in the content. Measured on one small call:
-    # effort "low" spent 905 output tokens, "medium" spent 7,961 — 8.8x the cost for
-    # 144 more tokens of actual answer. Since output is ~92% of the bill, the default
-    # would quietly dominate everything else in this file.
+    # Only applied to models that accept it. Reasoning models bill their thinking as
+    # output tokens while never showing it in the content: measured on one small call,
+    # effort "low" spent 905 output tokens where "medium" spent 7,961 — 8.8x for 144
+    # more tokens of answer. Ignored entirely on a model like gpt-4o-mini, which does
+    # not reason and spent 81 output tokens on the same call.
     outline_reasoning: str = "low"
     content_reasoning: str = "low"
 

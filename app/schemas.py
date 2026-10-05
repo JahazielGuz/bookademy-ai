@@ -62,7 +62,9 @@ class ChapterTopicsRequest(BaseModel):
     language: Language
     chapter_number: int
     chapter_title: str
-    text: str = Field(description="The chapter's extracted Markdown.")
+    page_start: int
+    page_end: int
+    text: str = Field(description="The chapter's extracted Markdown, page-marked.")
     headings: list[Heading] = Field(
         default_factory=list,
         description="The book's own headings for this chapter, as candidates to merge.",
