@@ -25,6 +25,7 @@ async def generate_topic_content(request: TopicContentRequest) -> TopicContentRe
             topic_summary=request.topic_summary,
             key_points=request.key_points,
         ),
+        reasoning_effort=settings.content_reasoning,
         output_format=TopicContent,
         max_output_tokens=16000,
     )

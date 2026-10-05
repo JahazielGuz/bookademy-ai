@@ -22,6 +22,7 @@ async def generate_chapter_topics(request: ChapterTopicsRequest) -> ChapterTopic
             chapter_title=request.chapter_title,
             headings=[heading.title for heading in request.headings],
         ),
+        reasoning_effort=settings.outline_reasoning,
         output_format=ChapterTopics,
         # First call for this chapter: it pays for the cache the topic calls read.
         max_output_tokens=4000,

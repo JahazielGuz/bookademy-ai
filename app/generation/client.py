@@ -30,6 +30,10 @@ class NotConfigured(Exception):
     """No OpenAI credentials could be resolved."""
 
 
+class Truncated(Exception):
+    """The model ran out of output budget before answering."""
+
+
 NO_CREDENTIALS = "No OpenAI credentials. Set OPENAI_API_KEY in bookademy-ai/.env."
 
 
@@ -57,6 +61,7 @@ async def parse_structured(
     source_text: str,
     user_text: str,
     output_format: type[T],
+    reasoning_effort: str,
     max_output_tokens: int = 16000,
 ) -> tuple[T, Usage]:
     """One structured-output call, with what it cost to make.
@@ -76,8 +81,20 @@ async def parse_structured(
             {"role": "user", "content": user_text},
         ],
         text_format=output_format,
+        reasoning={"effort": reasoning_effort},
         max_output_tokens=max_output_tokens,
     )
+
+    # A reasoning model can spend the entire output budget thinking and return
+    # nothing. Saying so beats "no parsable output", which is the symptom.
+    if getattr(response, "status", None) == "incomplete":
+        reason = getattr(getattr(response, "incomplete_details", None), "reason", "unknown")
+        raise Truncated(
+            f"{model} stopped early ({reason}). It used "
+            f"{getattr(response.usage, 'output_tokens', 0)} output tokens, of which "
+            f"{_reasoning_tokens(response)} were reasoning, and had none left for an "
+            f"answer. Raise max_output_tokens or lower the reasoning effort."
+        )
 
     refusal = _refusal_of(response)
     if refusal is not None:
@@ -88,6 +105,11 @@ async def parse_structured(
         raise ValueError(f"{model} returned no parsable {output_format.__name__}")
 
     return parsed, _usage_of(response, model)
+
+
+def _reasoning_tokens(response) -> int:
+    details = getattr(getattr(response, "usage", None), "output_tokens_details", None)
+    return getattr(details, "reasoning_tokens", 0) or 0
 
 
 def _usage_of(response, model: str) -> Usage:
