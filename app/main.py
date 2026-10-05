@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import Settings, get_settings
 from app.extraction import document_markdown, page_count
-from app.generation.client import NotConfigured, Refused
+from app.generation.client import NotConfigured, Refused, Truncated
 from app.generation.topic import generate_topic_content
 from app.generation.topics import generate_chapter_topics
 from app.outline import read_outline
@@ -140,7 +140,12 @@ async def _guarded(awaitable):
     except Refused as exc:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
-            {"detail": str(exc), "category": exc.category},
+            {"detail": str(exc), "category": None},
+        ) from exc
+    except Truncated as exc:
+        # Not worth retrying: the identical request truncates identically.
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, {"detail": str(exc), "category": "truncated"}
         ) from exc
     except APIStatusError as exc:
         logger.warning("openai returned %s: %s", exc.status_code, exc.message)
