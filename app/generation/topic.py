@@ -27,7 +27,7 @@ async def generate_topic_content(request: TopicContentRequest) -> TopicContentRe
         ),
         reasoning_effort=settings.content_reasoning,
         output_format=TopicContent,
-        max_output_tokens=16000,
+        max_output_tokens=48000,
     )
     return TopicContentResponse(
         lesson=parsed.lesson, quiz=parsed.quiz, exercises=parsed.exercises, usage=usage

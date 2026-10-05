@@ -94,7 +94,8 @@ async def parse_structured(
         "text_format": output_format,
         "max_output_tokens": max_output_tokens,
     }
-    if takes_reasoning_effort(model):
+    # An empty effort means leave it to the model.
+    if reasoning_effort and takes_reasoning_effort(model):
         request["reasoning"] = {"effort": reasoning_effort}
 
     try:
