@@ -35,7 +35,7 @@ and its examples where it has them.
 - Ends by motivating the practice that follows.
 
 The quiz:
-- 3-5 multiple-choice questions on the topic's key points.
+- 3-5 multiple-choice questions on the topic's key points, each with 2-4 choices.
 - Test understanding, not recall of wording. Wrong choices must be plausible \
 misunderstandings, never filler.
 
