@@ -9,7 +9,7 @@ adds nothing.
 
 import logging
 
-from anthropic import APIStatusError
+from openai import APIStatusError
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse
 
@@ -143,5 +143,5 @@ async def _guarded(awaitable):
             {"detail": str(exc), "category": exc.category},
         ) from exc
     except APIStatusError as exc:
-        logger.warning("anthropic returned %s: %s", exc.status_code, exc.message)
+        logger.warning("openai returned %s: %s", exc.status_code, exc.message)
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "The model provider failed") from exc
