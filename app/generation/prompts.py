@@ -17,7 +17,8 @@ covers two.
 cross-promotions, lists of requirements.
 - key_points are the specific claims or techniques the learner must come away with, \
 not restatements of the title.
-- page_start and page_end must fall inside the chapter's range."""
+- page_start and page_end are real page numbers from the book. The text is marked \
+with `<!-- page N -->` before each page; use those numbers, do not count from one."""
 
 CONTENT_SYSTEM = """\
 You are writing one topic of a self-paced programming course, in the style of an \
@@ -61,11 +62,15 @@ keep every step inside it.
 Write for someone learning this for the first time."""
 
 
-def topics_user_text(*, chapter_number: int, chapter_title: str, headings: list[str]) -> str:
+def topics_user_text(
+    *, chapter_number: int, chapter_title: str, headings: list[str],
+    page_start: int, page_end: int,
+) -> str:
     listed = "\n".join(f"- {heading}" for heading in headings) or "(none)"
     return (
         f"Chapter {chapter_number}: {chapter_title}\n\n"
         f"The book's own headings for this chapter:\n{listed}\n\n"
+        f"This chapter runs from page {page_start} to page {page_end}.\n\n"
         f"Produce the topic list for this chapter."
     )
 
