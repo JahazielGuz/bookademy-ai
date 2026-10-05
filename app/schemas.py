@@ -90,7 +90,11 @@ class Lesson(BaseModel):
 
 class QuizQuestion(BaseModel):
     prompt: str
-    choices: list[str] = Field(min_length=2, max_length=5)
+    # Lower bound only. Structured outputs do not enforce array bounds server-side —
+    # the SDK moves them into the description and Pydantic checks them on the way
+    # back — so an upper bound here would turn a harmless six-choice question into a
+    # failed topic. Two is different: a question with one choice is broken.
+    choices: list[str] = Field(min_length=2)
     correct_index: int
     explanation: str = Field(description="Why the correct choice is correct.")
 
