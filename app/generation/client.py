@@ -17,6 +17,7 @@ from openai import OpenAI, OpenAIError
 from pydantic import BaseModel
 
 from app.config import get_settings
+from app.schemas import Usage
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -57,8 +58,11 @@ async def parse_structured(
     user_text: str,
     output_format: type[T],
     max_output_tokens: int = 16000,
-) -> T:
-    """One structured-output call over already-extracted text.
+) -> tuple[T, Usage]:
+    """One structured-output call, with what it cost to make.
+
+    Usage comes back with the content because the alternative is estimating it, and
+    estimating it is how this project once predicted $5 and spent $20.
 
     The source text is a separate leading message so the cached prefix stays
     byte-identical across every topic in a chapter.
@@ -82,7 +86,19 @@ async def parse_structured(
     parsed = response.output_parsed
     if parsed is None:
         raise ValueError(f"{model} returned no parsable {output_format.__name__}")
-    return parsed
+
+    return parsed, _usage_of(response, model)
+
+
+def _usage_of(response, model: str) -> Usage:
+    usage = getattr(response, "usage", None)
+    details = getattr(usage, "input_tokens_details", None)
+    return Usage(
+        model=model,
+        input_tokens=getattr(usage, "input_tokens", 0) or 0,
+        cached_input_tokens=getattr(details, "cached_tokens", 0) or 0,
+        output_tokens=getattr(usage, "output_tokens", 0) or 0,
+    )
 
 
 def _refusal_of(response) -> str | None:

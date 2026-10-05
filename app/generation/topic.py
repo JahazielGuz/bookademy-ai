@@ -8,12 +8,12 @@ price instead of sending it again.
 from app.config import get_settings
 from app.generation.client import parse_structured
 from app.generation.prompts import CONTENT_SYSTEM, content_user_text
-from app.schemas import TopicContent, TopicContentRequest
+from app.schemas import TopicContent, TopicContentRequest, TopicContentResponse
 
 
-async def generate_topic_content(request: TopicContentRequest) -> TopicContent:
+async def generate_topic_content(request: TopicContentRequest) -> TopicContentResponse:
     settings = get_settings()
-    return await parse_structured(
+    parsed, usage = await parse_structured(
         model=settings.content_model,
         system=CONTENT_SYSTEM,
         source_text=request.text,
@@ -27,4 +27,7 @@ async def generate_topic_content(request: TopicContentRequest) -> TopicContent:
         ),
         output_format=TopicContent,
         max_output_tokens=16000,
+    )
+    return TopicContentResponse(
+        lesson=parsed.lesson, quiz=parsed.quiz, exercises=parsed.exercises, usage=usage
     )
