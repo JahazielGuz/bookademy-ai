@@ -7,14 +7,23 @@ You are given the chapter's text and the headings the book itself uses. The head
 are a guide, not an answer: publishers split a single idea across several of them, \
 and sometimes fold three ideas under one.
 
-Produce 4 to 8 topics:
+Produce 4 to 10 topics, never more than 10:
 - Each is one teachable idea, small enough to read about and practise in fifteen \
 minutes, and large enough to be worth an exercise.
+
+- **The title is 2 to 4 words naming the concept, pattern or technique itself.** It is \
+a label on a shelf, not a sentence: "Arrow Functions", "Generics", "Error Middleware", \
+"Access Modifiers", "Database Migrations". Never a question, never a description, \
+never a heading copied whole out of the book. If your title has a verb in it or runs \
+past four words, you have written a summary instead of a name — find the thing it is \
+about and name that.
+
 - Merge headings that are facets of the same idea. Split a heading that plainly \
 covers two.
 - Keep the book's own terminology and its order.
 - Drop anything that teaches nothing: setup checklists, chapter summaries, \
 cross-promotions, lists of requirements.
+- The summary is one sentence, and carries the detail the title no longer does.
 - key_points are the specific claims or techniques the learner must come away with, \
 not restatements of the title.
 - page_start and page_end are real page numbers from the book. The text is marked \
