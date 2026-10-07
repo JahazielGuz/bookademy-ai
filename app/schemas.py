@@ -47,6 +47,54 @@ class DocumentResponse(BaseModel):
     )
 
 
+# --- What every call reports back ---------------------------------------------
+
+
+class Usage(BaseModel):
+    """What one call actually consumed.
+
+    Returned alongside the content rather than folded into it: the content models are
+    what the model is constrained to produce, and usage is not something it reports.
+    """
+
+    model: str
+    input_tokens: int
+    cached_input_tokens: int
+    output_tokens: int
+
+
+# --- Overview: one small call per document ------------------------------------
+
+
+class Overview(BaseModel):
+    """What a learner reads before deciding to start. Constrained to the two things
+    that answer "is this for me": what the course is, and what they walk away able
+    to do."""
+
+    summary: str = Field(
+        description="Two sentences at most on what this book teaches and who it is for."
+    )
+    outcomes: list[str] = Field(
+        description="What the learner will be able to do, one short phrase each."
+    )
+
+
+class OverviewRequest(BaseModel):
+    language: Language
+    title: str
+    chapter_titles: list[str]
+    opening_text: str = Field(
+        default="",
+        description="The book's first few pages, where a preface usually states its aim.",
+    )
+
+
+class OverviewResponse(BaseModel):
+    summary: str
+    outcomes: list[str]
+    usage: Usage
+
+
 # --- Topics: one call per chapter --------------------------------------------
 
 
@@ -69,19 +117,6 @@ class ChapterTopicsRequest(BaseModel):
         default_factory=list,
         description="The book's own headings for this chapter, as candidates to merge.",
     )
-
-
-class Usage(BaseModel):
-    """What one call actually consumed.
-
-    Returned alongside the content rather than folded into it: the content models are
-    what the model is constrained to produce, and usage is not something it reports.
-    """
-
-    model: str
-    input_tokens: int
-    cached_input_tokens: int
-    output_tokens: int
 
 
 class ChapterTopics(BaseModel):
