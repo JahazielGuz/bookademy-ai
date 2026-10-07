@@ -11,6 +11,7 @@ exposed to a browser.
 | Endpoint | Does |
 |---|---|
 | `POST /v1/documents` | Reads a PDF into Markdown, one entry per page, plus its chapters and their page ranges. **No model is involved.** Called once per document. |
+| `POST /v1/overview` | Title and chapter list → the two sentences and handful of outcomes shown above the syllabus. Called once per document, on the lightweight model; a fraction of a cent. |
 | `POST /v1/chapter-topics` | A chapter's text and its own headings → 4–8 topics. Called once per chapter. |
 | `POST /v1/topic-content` | A topic's text → its lesson, quiz and exercises. Called once per topic, and where nearly all the spend lives. |
 

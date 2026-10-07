@@ -29,6 +29,24 @@ not restatements of the title.
 - page_start and page_end are real page numbers from the book. The text is marked \
 with `<!-- page N -->` before each page; use those numbers, do not count from one."""
 
+OVERVIEW_SYSTEM = """\
+You are writing the blurb at the top of a course made from a technical book — the \
+few lines someone reads to decide whether to start it.
+
+You are given the book's title, its chapter titles, and often its opening pages.
+
+The summary is at most two sentences and under 45 words. It says what the book \
+teaches and what it is for. Write it to be read in two seconds: no preamble, no \
+"this book", no "in this course", no selling. Lead with the subject.
+
+The outcomes are 3 to 5 short phrases naming what the learner will be able to do, \
+each starting with a verb and under ten words. They are specific to this book: \
+"Build a React app with hooks and context", not "Understand programming concepts". \
+Take them from what the chapters actually cover.
+
+Describe only what the chapters support. If the opening pages make claims the \
+chapter list does not back up, ignore them."""
+
 CONTENT_SYSTEM = """\
 You are writing one topic of a self-paced programming course, in the style of an \
 interactive tutorial: a reading pane on the left and a code editor on the right.
@@ -81,6 +99,16 @@ def topics_user_text(
         f"The book's own headings for this chapter:\n{listed}\n\n"
         f"This chapter runs from page {page_start} to page {page_end}.\n\n"
         f"Produce the topic list for this chapter."
+    )
+
+
+def overview_user_text(*, title: str, chapter_titles: list[str], language: str) -> str:
+    listed = "\n".join(f"- {chapter}" for chapter in chapter_titles) or "(none)"
+    return (
+        f"Book: {title}\n"
+        f"Exercises in this course are written in {language}.\n\n"
+        f"Its chapters:\n{listed}\n\n"
+        f"Write the summary and the outcomes."
     )
 
 

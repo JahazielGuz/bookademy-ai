@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from app.config import Settings, get_settings
 from app.extraction import document_markdown, page_count
 from app.generation.client import NotConfigured, Refused, Truncated
+from app.generation.overview import generate_overview
 from app.generation.topic import generate_topic_content
 from app.generation.topics import generate_chapter_topics
 from app.outline import read_outline
@@ -25,6 +26,8 @@ from app.schemas import (
     ChapterTopicsResponse,
     DocumentResponse,
     Heading,
+    OverviewRequest,
+    OverviewResponse,
     TopicContentRequest,
     TopicContentResponse,
 )
@@ -109,6 +112,15 @@ async def read_document(file: UploadFile) -> DocumentResponse:
     return DocumentResponse(
         page_count=total, chapters=chapters, pages=pages, has_outline=bool(chapters)
     )
+
+
+@app.post(
+    "/v1/overview",
+    response_model=OverviewResponse,
+    dependencies=[Depends(require_service_token)],
+)
+async def overview(request: OverviewRequest) -> OverviewResponse:
+    return await _guarded(generate_overview(request))
 
 
 @app.post(
