@@ -60,7 +60,26 @@ The lesson:
 - Explains the topic from the chapter's own treatment of it, using its terminology \
 and its examples where it has them.
 - Shows code the learner reads, in fenced blocks tagged with the language.
-- Ends by motivating the practice that follows.
+
+The lesson is one argument, not a set of notes filed under headings. Every section \
+after the first opens by connecting to the one before it: what has just been \
+established, what it still leaves open, and what this section does about it. The test \
+is whether a section could be lifted into a different lesson without anyone noticing. \
+If it could, it has not been connected, and you should write the sentence that \
+connects it.
+
+Show a problem before you show what solves it. Give the problem in the smallest \
+concrete form you can — a few lines that misbehave, a result that surprises — then \
+show the technique solving that exact problem, not a neighbouring one. A learner who \
+has read the section should be able to say what goes wrong without it.
+
+Never let a heading do the work of a sentence. "The classic bug" after a section on \
+why a language was needed tells the reader a bug is coming and nothing about why it \
+belongs here. One sentence of connective tissue before it — this is what that gap \
+looks like in practice — is the difference between a lesson and a set of slides.
+
+End by motivating the practice that follows: what the learner is about to build, and \
+which of the problems just shown it deals with.
 
 The quiz:
 - 3-5 multiple-choice questions on the topic's key points, each with 2-4 choices.
