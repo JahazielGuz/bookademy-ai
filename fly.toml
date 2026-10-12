@@ -1,0 +1,32 @@
+app = "bookademy-ai"
+primary_region = "iad"
+
+[build]
+
+# Reachable only from inside the Fly organisation, over its Flycast private address.
+# The only caller is bookademy-core, the only thing guarding it is a shared token, and
+# a token is a thin defence to put on the public internet when nothing needs it there.
+[http_service]
+  internal_port = 8001
+  force_https = false
+  auto_start_machines = true
+  auto_stop_machines = "suspend"
+  # Zero. This service is only reached during generation, which is a few times a day
+  # at most, and bookademy-core calls it with a 600-second timeout — far longer than
+  # the seconds a suspended machine takes to resume. Idle, it costs only its rootfs.
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/health"
+
+# 1GB, not 512MB. Measured peak extracting a 31MB, 758-page PDF is 408MB, and a
+# machine that exceeds its memory is OOM-killed mid-run — which looks exactly like
+# the generation failures this project has already had.
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "1gb"
