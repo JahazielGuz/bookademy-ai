@@ -1,8 +1,9 @@
 """One chapter -> its topic list.
 
 The book's own headings do most of the work, so this call only has to merge what is
-split too fine and drop what teaches nothing. It runs once per chapter, on the
-chapter text, and writes that text to the cache the content calls then read from.
+split too fine and drop what teaches nothing. It runs once per chapter, on the whole
+chapter text — the one call that does, which is why it runs without thinking: a long
+chapter leaves little of the window for anything else.
 """
 
 from app.config import get_settings
@@ -24,9 +25,10 @@ async def generate_chapter_topics(request: ChapterTopicsRequest) -> ChapterTopic
             page_start=request.page_start,
             page_end=request.page_end,
         ),
-        reasoning_effort=settings.outline_reasoning,
+        thinking=settings.outline_thinking,
         output_format=ChapterTopics,
-        # First call for this chapter: it pays for the cache the topic calls read.
+        # A list of titles, summaries and page numbers; small by design, so the
+        # chapter text can be as long as it is.
         max_output_tokens=4000,
     )
     return ChapterTopicsResponse(topics=parsed.topics, usage=usage)

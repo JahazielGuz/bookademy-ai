@@ -44,19 +44,25 @@ A PDF without bookmarks cannot be used. That is checked up front and reported.
 
 | Variable | |
 |---|---|
-| `OPENAI_API_KEY` | Required. |
+| `OPENAI_BASE_URL` | Required. The llama.cpp server's OpenAI-compatible API, e.g. `http://N.tcp.ngrok.io:PORT/v1`. |
+| `OPENAI_API_KEY` | Required. The key llama.cpp was started with. |
 | `SERVICE_TOKEN` | Must match `bookademy-core/.env` exactly. |
-| `OUTLINE_MODEL` | Merges a chapter's headings into topics. Default `gpt-5-mini`. |
-| `CONTENT_MODEL` | Writes each topic. Default `gpt-5-mini`. |
+| `OUTLINE_MODEL` | Merges a chapter's headings into topics. Default `qwen3.8-27b`. |
+| `CONTENT_MODEL` | Writes each topic. Default `qwen3.8-27b`. |
+| `OUTLINE_THINKING` | Whether the outline call thinks first. Default `false`. |
+| `CONTENT_THINKING` | Whether the content call thinks first. Default `true`. |
+| `CONTEXT_WINDOW` | Tokens per server slot. Default `32768`. |
 
-Both default to mid-tier on purpose. A nano-class model is cheaper again, but it is
-built for classification and routing, not for writing cumulative exercises where each
-step has to build on the last and the code has to run. That is the one part of this
-system where paying less shows.
+The model is local, so a book costs nothing but time: roughly two to three minutes a
+topic with thinking on, four topics at once across the server's slots. Thinking is
+where that time goes, and it is spent on the content call alone — the outline call
+only groups headings the book already wrote.
 
-Prompt caching is automatic and needs no annotation. What still matters is prompt
-*order*: the source text leads and the per-call instruction trails, so the repeated
-prefix stays identical across a chapter.
+The server's `/v1/responses` endpoint accepts a JSON schema and then ignores it, so
+every call goes through chat completions, where the schema is enforced as a grammar.
+Prompt caching is per slot and automatic. What still matters is prompt *order*: the
+source text leads and the per-call instruction trails, so the repeated prefix stays
+identical across calls that share a source.
 
 ## The contract
 

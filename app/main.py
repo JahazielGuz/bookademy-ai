@@ -9,9 +9,9 @@ adds nothing.
 
 import logging
 
-from openai import APIStatusError
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse
+from openai import APIConnectionError, APIStatusError
 
 from app.config import Settings, get_settings
 from app.extraction import document_markdown, page_count
@@ -34,7 +34,7 @@ from app.schemas import (
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="bookademy-ai", version="0.2.0")
+app = FastAPI(title="bookademy-ai", version="0.3.0")
 
 MAX_UPLOAD_BYTES = 64 * 1024 * 1024
 
@@ -159,6 +159,11 @@ async def _guarded(awaitable):
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY, {"detail": str(exc), "category": "truncated"}
         ) from exc
+    except APIConnectionError as exc:
+        logger.warning("could not reach the model server: %s", exc)
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, "Could not reach the model server"
+        ) from exc
     except APIStatusError as exc:
-        logger.warning("openai returned %s: %s", exc.status_code, exc.message)
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "The model provider failed") from exc
+        logger.warning("model server returned %s: %s", exc.status_code, exc.message)
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "The model server failed") from exc
