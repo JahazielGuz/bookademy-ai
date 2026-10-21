@@ -118,6 +118,7 @@ def test_the_request_is_a_chat_completion_with_the_schema_and_the_thinking_switc
     sent = server.request
     assert sent["response_format"] is Answer
     assert sent["max_tokens"] == 1000
+    assert sent["stream_options"] == {"include_usage": True}
     assert sent["extra_body"] == {"chat_template_kwargs": {"enable_thinking": False}}
     # Source first, request last: the repeated prefix is what the server caches.
     assert [m["role"] for m in sent["messages"]] == ["system", "user", "user"]

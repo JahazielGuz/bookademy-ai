@@ -119,6 +119,9 @@ async def parse_structured[T: BaseModel](
             ],
             response_format=output_format,
             max_tokens=max_output_tokens,
+            # A stream only carries usage if asked; without this the final chunk
+            # has none and every call would be recorded as free and empty.
+            stream_options={"include_usage": True},
             # llama.cpp's switch for Qwen's thinking, read by the chat template.
             extra_body={"chat_template_kwargs": {"enable_thinking": thinking}},
         ) as stream:
