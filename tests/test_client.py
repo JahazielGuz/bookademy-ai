@@ -36,24 +36,54 @@ def completion(*, parsed=None, refusal=None, cached=5):
     return SimpleNamespace(choices=[SimpleNamespace(message=message)], usage=usage)
 
 
+class FakeStream:
+    """What the SDK's stream helper hands back: a context manager that assembles the
+    final completion, or raises what the server raised."""
+
+    def __init__(self, result):
+        self.result = result
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def get_final_completion(self):
+        if isinstance(self.result, Exception):
+            raise self.result
+        return self.result
+
+
 class FakeServer:
     """Records the one request it is sent and answers with whatever it was built with."""
 
     def __init__(self, result):
         self.result = result
         self.request = None
-        self.chat = SimpleNamespace(completions=SimpleNamespace(parse=self.parse))
+        self.chat = SimpleNamespace(completions=SimpleNamespace(stream=self.stream))
 
-    def parse(self, **request):
+    def stream(self, **request):
         self.request = request
-        if isinstance(self.result, Exception):
-            raise self.result
-        return self.result
+        return FakeStream(self.result)
+
+
+class FakeOpenAI:
+    """An SDK client whose server serves exactly one model."""
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+        self.models = SimpleNamespace(list=lambda: [SimpleNamespace(id="qwen3.8-27b")])
+
+
+def settings_for(**values) -> Settings:
+    """Settings from these values alone — never from the developer's .env."""
+    return Settings(_env_file=None, **values)
 
 
 @pytest.fixture
 def settings(monkeypatch):
-    configured = Settings(openai_base_url="http://model.test/v1", openai_api_key="k")
+    configured = settings_for(openai_base_url="http://model.test/v1", openai_api_key="k")
     monkeypatch.setattr(client_module, "get_settings", lambda: configured)
     get_client.cache_clear()
     return configured
@@ -127,8 +157,26 @@ def test_source_text_is_cut_to_what_fits_beside_the_answer(settings):
 
 
 def test_a_server_must_be_configured(monkeypatch):
-    monkeypatch.setattr(client_module, "get_settings", lambda: Settings(openai_api_key="k"))
+    monkeypatch.setattr(client_module, "get_settings", lambda: settings_for(openai_api_key="k"))
     get_client.cache_clear()
 
     with pytest.raises(NotConfigured, match="OPENAI_BASE_URL"):
         get_client()
+
+
+def test_the_configured_models_must_be_ones_the_server_serves(monkeypatch):
+    monkeypatch.setattr(client_module, "OpenAI", FakeOpenAI)
+    stale = settings_for(openai_base_url="http://model.test/v1", openai_api_key="k", content_model="gpt-5-mini")
+    monkeypatch.setattr(client_module, "get_settings", lambda: stale)
+    get_client.cache_clear()
+
+    with pytest.raises(NotConfigured, match="does not serve gpt-5-mini; it serves qwen3.8-27b"):
+        get_client()
+
+
+def test_a_served_model_passes_the_check(monkeypatch, settings):
+    monkeypatch.setattr(client_module, "OpenAI", FakeOpenAI)
+
+    client = get_client()
+
+    assert client.kwargs["base_url"] == "http://model.test/v1"

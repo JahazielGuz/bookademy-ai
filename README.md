@@ -50,13 +50,19 @@ A PDF without bookmarks cannot be used. That is checked up front and reported.
 | `OUTLINE_MODEL` | Merges a chapter's headings into topics. Default `qwen3.8-27b`. |
 | `CONTENT_MODEL` | Writes each topic. Default `qwen3.8-27b`. |
 | `OUTLINE_THINKING` | Whether the outline call thinks first. Default `false`. |
-| `CONTENT_THINKING` | Whether the content call thinks first. Default `true`. |
+| `CONTENT_THINKING` | Whether the content call thinks first. Default `false`. |
 | `CONTEXT_WINDOW` | Tokens per server slot. Default `32768`. |
 
-The model is local, so a book costs nothing but time: roughly two to three minutes a
-topic with thinking on, four topics at once across the server's slots. Thinking is
-where that time goes, and it is spent on the content call alone — the outline call
-only groups headings the book already wrote.
+The model is local, so a book costs nothing but time: about five minutes a topic,
+four topics at once across the server's slots, at roughly twenty tokens a second.
+Thinking is off for every call by default, from measurement rather than thrift: on
+the content call the model thought for eleven thousand tokens without starting the
+answer, then hit the ceiling. The small calls finish in half a minute with it on.
+
+Calls are streamed for the connection, not the tokens. A plain call carries nothing
+on the socket until the answer is complete, and whatever sits between the service
+and the server — ngrok's edge, a router's NAT table — closes a socket that has been
+silent for fifteen minutes. On a stream, bytes move every token.
 
 The server's `/v1/responses` endpoint accepts a JSON schema and then ignores it, so
 every call goes through chat completions, where the schema is enforced as a grammar.

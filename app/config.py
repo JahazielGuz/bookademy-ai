@@ -21,14 +21,15 @@ class Settings(BaseSettings):
     outline_model: str = "qwen3.8-27b"
     content_model: str = "qwen3.8-27b"
 
-    # Whether the model thinks before it answers. On a local model thinking is paid in
-    # minutes and in context rather than dollars: every reasoning token shares one
-    # slot's window with the source text and the answer, at about twenty tokens a
-    # second. The outline call only groups headings, so it does not get to. The
-    # content call writes every lesson and exercise, and that is the one place the
-    # time is worth spending.
+    # Whether the model thinks before it answers. Thinking is paid in minutes and in
+    # context: every reasoning token shares one slot's window with the source text and
+    # the answer, at about twenty tokens a second. Off for both by default, from
+    # measurement rather than thrift. On the content call the model thought for eleven
+    # thousand tokens — ten minutes — without starting the answer, then hit the
+    # ceiling with nothing to show. The small calls can afford it: with it on they
+    # still finish in half a minute. Flip either flag to try.
     outline_thinking: bool = False
-    content_thinking: bool = True
+    content_thinking: bool = False
 
     # Context per server slot: llama.cpp's --ctx-size, per --parallel slot. Source text
     # that would not fit beside the answer is cut to fit rather than refused.
