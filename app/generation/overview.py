@@ -1,9 +1,8 @@
 """One document -> the few lines a learner reads before starting it.
 
 The smallest call in the service: the chapter list and a slice of the book's opening
-pages, in; two sentences and a handful of outcomes, out. It runs once per document on
-the lightweight model, so it costs a fraction of a cent against the dollar or so a
-whole book takes.
+pages, in; two sentences and a handful of outcomes, out. It runs once per document,
+without thinking, so it is over in seconds.
 """
 
 from app.config import get_settings
@@ -27,10 +26,9 @@ async def generate_overview(request: OverviewRequest) -> OverviewResponse:
             chapter_titles=request.chapter_titles,
             language=request.language,
         ),
-        reasoning_effort=settings.outline_reasoning,
+        thinking=settings.outline_thinking,
         output_format=Overview,
-        # Two sentences and five phrases. The ceiling is for a reasoning model's
-        # thinking, not for the answer.
+        # Two sentences and five phrases; the ceiling is headroom, not a target.
         max_output_tokens=2000,
     )
     return OverviewResponse(summary=parsed.summary, outcomes=parsed.outcomes, usage=usage)

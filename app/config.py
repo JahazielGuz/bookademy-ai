@@ -6,33 +6,34 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    # The model server: llama.cpp behind its OpenAI-compatible API, reached through the
+    # OpenAI SDK. Both are required. Left unset, the SDK would quietly fall back to
+    # api.openai.com, which this service no longer talks to.
+    openai_base_url: str | None = None
     openai_api_key: str | None = None
 
     service_token: str = "dev-only-change-me"
 
-    # Two tiers, because the two calls are not the same kind of work.
-    #
-    # The outline call is given the chapter's own headings and asked to group them:
-    # constrained, mechanical, and no longer the high-stakes call it was when it had
-    # to invent the chapter structure from the whole book. A small model suits it.
-    #
-    # The content call writes the lessons and the exercises. It is the product, it is
-    # 92% of the spend, and it is the one place where a cheaper model shows.
-    outline_model: str = "gpt-4o-mini"
-    content_model: str = "gpt-5-mini"
+    # One local model serves every call, so the two tiers are the same model by
+    # default. They are kept apart because the calls still differ in what they need:
+    # the outline call groups headings it is handed, the content call writes the
+    # product — and a second server could serve a bigger model for the latter.
+    outline_model: str = "qwen3.8-27b"
+    content_model: str = "qwen3.8-27b"
 
-    # Only applied to models that accept it. Reasoning models bill their thinking as
-    # output tokens while never showing it in the content: measured on one small call,
-    # effort "low" spent 905 output tokens where "medium" spent 7,961 — 8.8x for 144
-    # more tokens of answer. Ignored entirely on a model like gpt-4o-mini, which does
-    # not reason and spent 81 output tokens on the same call.
-    # Empty means "do not send it" — the model then reasons as much as it judges
-    # necessary. That is deliberate for content: it writes every lesson and exercise,
-    # and capping how hard it thinks is economising on the one call that is the
-    # product. The outline call only groups headings it is handed, so "low" there
-    # costs nothing worth having.
-    outline_reasoning: str = "low"
-    content_reasoning: str = ""
+    # Whether the model thinks before it answers. Thinking is paid in minutes and in
+    # context: every reasoning token shares one slot's window with the source text and
+    # the answer, at about twenty tokens a second. Off for both by default, from
+    # measurement rather than thrift. On the content call the model thought for eleven
+    # thousand tokens — ten minutes — without starting the answer, then hit the
+    # ceiling with nothing to show. The small calls can afford it: with it on they
+    # still finish in half a minute. Flip either flag to try.
+    outline_thinking: bool = False
+    content_thinking: bool = False
+
+    # Context per server slot: llama.cpp's --ctx-size, per --parallel slot. Source text
+    # that would not fit beside the answer is cut to fit rather than refused.
+    context_window: int = 32768
 
 
 @lru_cache

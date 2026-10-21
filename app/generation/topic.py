@@ -1,8 +1,7 @@
 """One topic -> lesson, quiz and exercises.
 
-Called once per topic, which is where nearly all the token spend lives. The chapter
-text was cached by the topics call, so every one of these reads it at a tenth of the
-price instead of sending it again.
+Called once per topic, on that topic's own pages, which is where nearly all the
+generation time lives — and the one call that thinks first.
 """
 
 from app.config import get_settings
@@ -25,9 +24,11 @@ async def generate_topic_content(request: TopicContentRequest) -> TopicContentRe
             topic_summary=request.topic_summary,
             key_points=request.key_points,
         ),
-        reasoning_effort=settings.content_reasoning,
+        thinking=settings.content_thinking,
         output_format=TopicContent,
-        max_output_tokens=48000,
+        # Thinking and the answer share this. A lesson, quiz and exercises run to
+        # about six thousand tokens; the rest is room to think.
+        max_output_tokens=16000,
     )
     return TopicContentResponse(
         lesson=parsed.lesson, quiz=parsed.quiz, exercises=parsed.exercises, usage=usage

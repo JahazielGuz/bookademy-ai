@@ -1,25 +1,27 @@
-"""OpenAI client plumbing shared by the generators.
+"""Model client plumbing shared by the generators.
 
 Everything sent from here is text. The document was turned into Markdown before it
 reached this module, so no PDF — and therefore no rendered page — ever goes over the
 wire.
 
-Prompt caching is automatic on OpenAI for long prompts and needs no annotation, so
-unlike the previous provider there is no cache_control to place. What still matters
-is prompt *order*: the source text goes first and the per-topic instruction last, so
-the repeated prefix is identical across every topic in a chapter.
+The server is llama.cpp behind its OpenAI-compatible API. Its /v1/responses endpoint
+accepts a JSON schema and then ignores it, so every call goes through chat
+completions, where the schema becomes a grammar the sampler cannot step outside of.
+Prompt caching is per slot and automatic; what still matters is prompt *order*: the
+source text goes first and the per-topic instruction last, so the repeated prefix is
+identical across every call that shares a source.
 """
 
+import logging
 from functools import lru_cache
-from typing import TypeVar
 
-from openai import BadRequestError, OpenAI, OpenAIError
+from openai import LengthFinishReasonError, OpenAI
 from pydantic import BaseModel
 
 from app.config import get_settings
 from app.schemas import Usage
 
-T = TypeVar("T", bound=BaseModel)
+logger = logging.getLogger(__name__)
 
 
 class Refused(Exception):
@@ -27,129 +29,147 @@ class Refused(Exception):
 
 
 class NotConfigured(Exception):
-    """No OpenAI credentials could be resolved."""
+    """No model server could be resolved, or it does not serve the configured models."""
 
 
 class Truncated(Exception):
     """The model ran out of output budget before answering."""
 
 
-NO_CREDENTIALS = "No OpenAI credentials. Set OPENAI_API_KEY in bookademy-ai/.env."
+NO_CREDENTIALS = (
+    "No model server configured. Set OPENAI_BASE_URL and OPENAI_API_KEY in "
+    "bookademy-ai/.env."
+)
 
-# Only reasoning models accept a reasoning effort; the rest reject the parameter
-# outright with a 400. Matched on name because the API offers no capability lookup,
-# and backed up by retrying without it if the guess is ever wrong — a rejected
-# request is refused before inference, so the retry costs nothing.
-REASONING_MODEL_PREFIXES = ("gpt-5", "gpt-6", "o1", "o3", "o4")
-UNSUPPORTED_REASONING = "'reasoning.effort' is not supported"
+# A topic on a local model is minutes of work, and the SDK's default of ten would cut
+# off a long one with every slot busy.
+TIMEOUT_SECONDS = 3600
 
+# Qwen's tokenizer averages about four characters per token on English prose and
+# fewer on code; 3.5 errs towards cutting a little too much rather than failing the
+# call.
+CHARS_PER_TOKEN = 3.5
 
-def takes_reasoning_effort(model: str) -> bool:
-    return model.startswith(REASONING_MODEL_PREFIXES)
+# The instructions, the per-call request and the chat template, all of which sit in
+# the window beside the source text and the answer.
+OVERHEAD_TOKENS = 1500
 
 
 @lru_cache
 def get_client() -> OpenAI:
-    """One client for the process.
+    """One client for the process, checked once against what the server serves.
 
-    An unset key is not fatal here: the SDK falls back to OPENAI_API_KEY in the
-    environment, and only a request discovers whether anything resolved.
+    llama.cpp answers any model name with whatever it has loaded, so a stale name in
+    .env would not fail here — the tokens would be recorded, and priced, under it.
     """
     settings = get_settings()
-    try:
-        return OpenAI(api_key=settings.openai_api_key)
-    except OpenAIError as exc:
-        # The SDK raises at construction when no key resolves anywhere. Turning it
-        # into a configuration error here is what lets the service answer 503 with a
-        # sentence rather than a stack trace.
-        raise NotConfigured(NO_CREDENTIALS) from exc
+    if not settings.openai_base_url or not settings.openai_api_key:
+        raise NotConfigured(NO_CREDENTIALS)
+    client = OpenAI(
+        base_url=settings.openai_base_url,
+        api_key=settings.openai_api_key,
+        timeout=TIMEOUT_SECONDS,
+    )
+    served = {served_model.id for served_model in client.models.list()}
+    missing = {settings.outline_model, settings.content_model} - served
+    if missing:
+        raise NotConfigured(
+            f"The model server does not serve {', '.join(sorted(missing))}; it serves "
+            f"{', '.join(sorted(served))}. Set OUTLINE_MODEL and CONTENT_MODEL in "
+            "bookademy-ai/.env."
+        )
+    return client
 
 
-async def parse_structured(
+async def parse_structured[T: BaseModel](
     *,
     model: str,
     system: str,
     source_text: str,
     user_text: str,
     output_format: type[T],
-    reasoning_effort: str,
+    thinking: bool,
     max_output_tokens: int = 16000,
 ) -> tuple[T, Usage]:
     """One structured-output call, with what it cost to make.
 
     Usage comes back with the content because the alternative is estimating it, and
-    estimating it is how this project once predicted $5 and spent $20.
+    estimating it is how this project once predicted $5 and spent $20. The dollars
+    are gone now; the minutes are not.
 
     The source text is a separate leading message so the cached prefix stays
-    byte-identical across every topic in a chapter.
+    byte-identical across every call that shares it.
     """
     client = get_client()
-    request = {
-        "model": model,
-        "instructions": system,
-        "input": [
-            {"role": "user", "content": source_text},
-            {"role": "user", "content": user_text},
-        ],
-        "text_format": output_format,
-        "max_output_tokens": max_output_tokens,
-    }
-    # An empty effort means leave it to the model.
-    if reasoning_effort and takes_reasoning_effort(model):
-        request["reasoning"] = {"effort": reasoning_effort}
-
+    source_text = fit_to_window(source_text, max_output_tokens)
     try:
-        response = client.responses.parse(**request)
-    except BadRequestError as exc:
-        if UNSUPPORTED_REASONING not in str(exc):
-            raise
-        # The prefix list is behind a model it does not know about. Drop the
-        # parameter and carry on rather than failing the whole run over a name.
-        request.pop("reasoning", None)
-        response = client.responses.parse(**request)
-
-    # A reasoning model can spend the entire output budget thinking and return
-    # nothing. Saying so beats "no parsable output", which is the symptom.
-    if getattr(response, "status", None) == "incomplete":
-        reason = getattr(getattr(response, "incomplete_details", None), "reason", "unknown")
+        # Streamed for the connection, not for the tokens. A topic is minutes of work,
+        # and a plain call carries nothing on the socket until the answer is complete
+        # — long enough for whatever sits between here and the server, an ngrok edge
+        # or a router's NAT table, to close it as idle. Measured: 900 seconds exactly,
+        # with the model still generating. On a stream, bytes move every token. The
+        # chunks are assembled here into the completion the plain call would have
+        # returned.
+        with client.chat.completions.stream(
+            model=model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": source_text},
+                {"role": "user", "content": user_text},
+            ],
+            response_format=output_format,
+            max_tokens=max_output_tokens,
+            # A stream only carries usage if asked; without this the final chunk
+            # has none and every call would be recorded as free and empty.
+            stream_options={"include_usage": True},
+            # llama.cpp's switch for Qwen's thinking, read by the chat template.
+            extra_body={"chat_template_kwargs": {"enable_thinking": thinking}},
+        ) as stream:
+            completion = stream.get_final_completion()
+    except LengthFinishReasonError as exc:
+        # Thinking shares the budget with the answer and is not reported apart from
+        # it, so all that can be said is that the room ran out.
         raise Truncated(
-            f"{model} stopped early ({reason}). It used "
-            f"{getattr(response.usage, 'output_tokens', 0)} output tokens, of which "
-            f"{_reasoning_tokens(response)} were reasoning, and had none left for an "
-            f"answer. Raise max_output_tokens or lower the reasoning effort."
-        )
+            f"{model} ran out of room before finishing: {max_output_tokens} output "
+            f"tokens{', thinking included,' if thinking else ''} or the context window. "
+            "Raise max_output_tokens or turn thinking off for this call."
+        ) from exc
 
-    refusal = _refusal_of(response)
-    if refusal is not None:
-        raise Refused(refusal)
-
-    parsed = response.output_parsed
-    if parsed is None:
+    message = completion.choices[0].message
+    if message.refusal:
+        raise Refused(message.refusal)
+    if message.parsed is None:
         raise ValueError(f"{model} returned no parsable {output_format.__name__}")
 
-    return parsed, _usage_of(response, model)
+    return message.parsed, _usage_of(completion.usage, model)
 
 
-def _reasoning_tokens(response) -> int:
-    details = getattr(getattr(response, "usage", None), "output_tokens_details", None)
-    return getattr(details, "reasoning_tokens", 0) or 0
+def fit_to_window(source_text: str, max_output_tokens: int) -> str:
+    """Cut the source so the prompt and the answer fit one slot's context.
+
+    llama.cpp refuses a prompt that does not fit rather than trimming it, and the
+    only text here that can be trimmed is the source: the instructions and the
+    request are the call. A cut chapter loses its last pages, which costs it some
+    topics; a refused call loses the whole chapter.
+    """
+    settings = get_settings()
+    budget_tokens = settings.context_window - max_output_tokens - OVERHEAD_TOKENS
+    budget_chars = int(budget_tokens * CHARS_PER_TOKEN)
+    if len(source_text) <= budget_chars:
+        return source_text
+    logger.warning(
+        "source text cut from %d to %d characters to fit the context window",
+        len(source_text),
+        budget_chars,
+    )
+    return source_text[:budget_chars]
 
 
-def _usage_of(response, model: str) -> Usage:
-    usage = getattr(response, "usage", None)
-    details = getattr(usage, "input_tokens_details", None)
+def _usage_of(usage, model: str) -> Usage:
+    details = getattr(usage, "prompt_tokens_details", None)
     return Usage(
         model=model,
-        input_tokens=getattr(usage, "input_tokens", 0) or 0,
+        input_tokens=getattr(usage, "prompt_tokens", 0) or 0,
         cached_input_tokens=getattr(details, "cached_tokens", 0) or 0,
-        output_tokens=getattr(usage, "output_tokens", 0) or 0,
+        output_tokens=getattr(usage, "completion_tokens", 0) or 0,
     )
-
-
-def _refusal_of(response) -> str | None:
-    """A declined request comes back as a refusal block rather than content."""
-    for item in getattr(response, "output", []) or []:
-        for block in getattr(item, "content", []) or []:
-            if getattr(block, "type", None) == "refusal":
-                return getattr(block, "refusal", "The model declined this request.")
-    return None
